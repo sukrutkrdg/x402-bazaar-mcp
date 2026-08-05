@@ -28,7 +28,9 @@ import { z } from "zod";
 // — free-tier and prepaid-credit callers never load it, so the server boots and
 // serves those modes even without the crypto deps present, and startup is lighter.
 
-const VERSION = "0.2.2";
+// Keep in step with package.json and server.json — all three are published and
+// a stale one here is what the MCP registry reports.
+const VERSION = "0.2.3";
 
 // ---------------------------------------------------------------------------
 // 1. Config + payment mode
@@ -79,7 +81,14 @@ async function payAwareFetch(target, opts = {}) {
     const pay = await getPayingFetch();
     return pay(target, opts);
   }
-  return fetch(target, opts);
+  // Free mode: the trial call has to be asked for. A bare request now answers
+  // with the payment challenge instead, so that the discovery index can read
+  // what each endpoint sells — endpoints that answered 200 to an unpaid GET were
+  // never catalogued at all.
+  return fetch(target, {
+    ...opts,
+    headers: { ...(opts.headers ?? {}), "x-402-free": "1" },
+  });
 }
 
 // ---------------------------------------------------------------------------
