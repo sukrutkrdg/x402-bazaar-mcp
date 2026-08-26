@@ -12,8 +12,14 @@ Coinbase AgentKit, custom agents).
 **Bind these first:** `pre_trade_gate` (any token), `b20_gate` (Base-native B20
 tokens), `sign_guard` (before signing a tx).
 
-Each tool call is backed by an **x402 micro-payment in USDC on Base** — no API
-keys, no subscriptions, no sign-up.  The agent pays only for what it uses,
+**No wallet needed to start.** Run it with no key, no token and no config at all
+and it uses the **free tier** — one free call/day per service. When you outgrow
+that, a prepaid credit token keeps it walletless: one purchase, then every call
+is just an HTTP header. A wallet is only needed for the third mode, per-call
+payment.
+
+Each tool call is otherwise backed by an **x402 micro-payment in USDC on Base** —
+no API keys, no subscriptions, no sign-up.  The agent pays only for what it uses,
 typically fractions of a cent per call.
 
 **Works with zero config.** Run it with no wallet and no token and it uses the
@@ -207,7 +213,7 @@ Two ways in:
 
 1. **As MCP tools** — load this server into your AgentKit agent's MCP config
    (`command: "npx"`, `args: ["-y", "x402-bazaar-mcp"]`, and `X402_CREDIT_TOKEN`
-   or `AGENT_PRIVATE_KEY` in `env`). The agent gains all 124 Bazaar tools —
+   or `AGENT_PRIVATE_KEY` in `env`). The agent gains all 131 Bazaar tools —
    B20 freeze/seize checks, pre-trade gates, honeypot/sellability, deployer
    reputation, exit liquidity, live DEX prices, gas, tx decode, Claude reports —
    as pay-per-call actions, no action provider to write.
@@ -270,7 +276,7 @@ writing it includes:
 Prices shown as of this release — the authoritative price is always in the live
 catalog and in each 402 challenge. The table above is a sample: the tool list is
 loaded **live from the catalog** at startup, so the server always exposes
-everything the marketplace currently sells (124 tools today) — including the
+everything the marketplace currently sells (131 tools today) — including the
 B20 safety suite, the web and business checks (`url_extract`, `email_verify`,
 `domain_check`) and anything added since this README was written.
 
