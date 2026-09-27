@@ -18,7 +18,8 @@
  *                           preview. Zero config — great for trying the tools.
  *
  * Optional env:
- *   X402_BAZAAR_CATALOG – catalog URL (default: https://402.com.tr/api/catalog)
+ *   X402_BAZAAR_CATALOG   – catalog URL (default: https://402.com.tr/api/catalog)
+ *   X402_PARTNER_CATALOGS – comma-separated partner catalog URLs to federate
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -283,18 +284,57 @@ function registerService(service) {
 
 async function loadCatalog() {
   let services = [];
+  const partners = [];
   try {
     const res = await fetch(CATALOG_URL, { signal: AbortSignal.timeout(10000) });
     if (res.ok) {
       const catalog = await res.json();
-      services = catalog.services ?? catalog ?? [];
+      services = Array.isArray(catalog.services) ? [...catalog.services] : (Array.isArray(catalog) ? [...catalog] : []);
+      if (Array.isArray(catalog.partners)) {
+        partners.push(...catalog.partners);
+      }
     } else {
       log(`WARN: catalog HTTP ${res.status}`);
     }
   } catch (err) {
     log(`WARN: catalog fetch failed: ${err.message}`);
   }
-  if (!Array.isArray(services)) services = [];
+
+  // Support federated partner catalogs from environment (comma-separated list of URLs)
+  const envPartners = (process.env.X402_PARTNER_CATALOGS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  for (const pUrl of envPartners) {
+    partners.push({ catalog: pUrl, name: pUrl });
+  }
+
+  // Fetch partner catalogs and register their services
+  for (const partner of partners) {
+    const catalogUrl = partner.catalog;
+    if (!catalogUrl) continue;
+    try {
+      const pRes = await fetch(catalogUrl, { signal: AbortSignal.timeout(10000) });
+      if (pRes.ok) {
+        const pCatalog = await pRes.json();
+        const pServices = pCatalog.services ?? [];
+        if (Array.isArray(pServices)) {
+          for (const s of pServices) {
+            // Resolve relative endpoint to partner baseUrl if needed
+            if (s.endpoint && !s.endpoint.startsWith("http://") && !s.endpoint.startsWith("https://")) {
+              const base = partner.baseUrl ?? pCatalog.baseUrl ?? "";
+              s.endpoint = base ? `${base.replace(/\/+$/, "")}/${s.endpoint.replace(/^\/+/, "")}` : s.endpoint;
+            }
+            services.push(s);
+          }
+        }
+      } else {
+        log(`WARN: partner catalog HTTP ${pRes.status} for ${partner.name || catalogUrl}`);
+      }
+    } catch (pErr) {
+      log(`WARN: partner catalog fetch failed for ${partner.name || catalogUrl}: ${pErr.message}`);
+    }
+  }
 
   let added = 0;
   for (const service of services) {
