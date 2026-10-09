@@ -19,6 +19,9 @@
  *
  * Optional env:
  *   X402_BAZAAR_CATALOG – catalog URL (default: https://402.com.tr/api/catalog)
+ *   AGENT_SAFE=1        – wallet mode only: pay through Agent Safe (payee, price
+ *                         cap and budget checked before signing; see
+ *                         src/agent-safe.mjs and the README).
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -44,12 +47,15 @@ const BUILDER_CODE = "bc_pa0gqlv1";
 const CREDIT_TOKEN = (process.env.X402_CREDIT_TOKEN ?? "").trim();
 const HAS_WALLET = Boolean(process.env.AGENT_PRIVATE_KEY);
 const MODE = CREDIT_TOKEN ? "credits" : HAS_WALLET ? "wallet" : "free";
+const AGENT_SAFE = process.env.AGENT_SAFE === "1";
 
 // Wallet paying-fetch is built lazily — only needed when actually paying with a
 // key. The crypto stack is dynamically imported here so free/credit callers never
 // load viem/@x402 at all.
 let _payingFetch = null;
+let guard = null; // set when AGENT_SAFE=1 in wallet mode
 async function getPayingFetch() {
+  if (guard) return guard.fetch;
   if (_payingFetch) return _payingFetch;
   const [
     { x402Client, wrapFetchWithPayment },
@@ -208,6 +214,11 @@ function registerService(service) {
       }
       response = await payAwareFetch(target, opts);
     } catch (err) {
+      // A refusal from Agent Safe is an answer, not a wallet problem: say why, as is.
+      const refused = guard?.explain(err);
+      if (refused) {
+        return { content: [{ type: "text", text: `[x402-bazaar-mcp] ${refused}` }], isError: true };
+      }
       let msg = err?.message ?? String(err);
       if (/insufficient|balance|funds|exceeds/i.test(msg)) {
         msg =
@@ -301,6 +312,25 @@ async function loadCatalog() {
     if (registerService(service)) added++;
   }
   return { total: services.length, added };
+}
+
+// AGENT_SAFE=1 is set up before anything can pay, and a bad setting stops the
+// server: it never falls back to signing without the guard.
+if (AGENT_SAFE && MODE === "wallet") {
+  const { createGuardedFetch } = await import("./agent-safe.mjs");
+  const rawKey = process.env.AGENT_PRIVATE_KEY;
+  try {
+    guard = await createGuardedFetch({
+      privateKey: rawKey.startsWith("0x") ? rawKey : `0x${rawKey}`,
+      builderCode: BUILDER_CODE,
+    });
+  } catch (err) {
+    log(`AGENT_SAFE=1 could not start: ${err.message}`);
+    process.exit(1);
+  }
+  log(guard.summary);
+} else if (AGENT_SAFE) {
+  log(`AGENT_SAFE=1 applies to wallet mode only; running in ${MODE} mode, which signs nothing.`);
 }
 
 // Kick the catalog load off immediately and give it a few seconds to populate the

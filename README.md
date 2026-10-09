@@ -111,6 +111,42 @@ AGENT_PRIVATE_KEY=0xYOUR_PRIVATE_KEY npx x402-bazaar-mcp
 
 With none of the above set, the server runs on the **free tier**.
 
+### Guarded wallet mode (optional): `AGENT_SAFE=1`
+
+In wallet mode every 402 the agent reaches is signed, and the tools are built
+from a catalog fetched over the network every hour. A tool whose endpoint points
+somewhere else, or a 402 that names another payee, still gets a signed USDC
+authorization. With `AGENT_SAFE=1` (next to `AGENT_PRIVATE_KEY`), payments go
+through [Agent Safe](https://github.com/DeepFirstHQ/deepfirstsearch)
+(`@deepfirstsearch/agent-pay`, MIT), and before anything is signed:
+
+- the request must go to `https://402.com.tr` and pay the Bazaar's own address
+  in USDC on Base; both are set in the code, not read from the catalog or the 402;
+- the price must be at most `AGENT_SAFE_MAX_PER_CALL_USD` (default `0.15`, which
+  covers every service except the two $0.75 dossiers and `buy_credits`);
+- the window's budget must still cover it: `AGENT_SAFE_BUDGET_USD` (default
+  `1.00`) per `AGENT_SAFE_WINDOW_HOURS` (default `24`).
+
+Anything else comes back to the agent as a refusal with a reason and a code
+(e.g. `over_cap`, `unknown_merchant`), and nothing is signed. An unconfirmed
+payment is never signed twice. The Builder Code is echoed exactly as in plain
+wallet mode, so attribution is unchanged. A bad setting stops the server at
+startup; it never falls back to signing without the guard.
+
+```bash
+AGENT_PRIVATE_KEY=0xYOUR_PRIVATE_KEY AGENT_SAFE=1 \
+  npx -p x402-bazaar-mcp -p @deepfirstsearch/agent-pay x402-bazaar-mcp
+```
+
+| Variable | Default | Description |
+|---|---|---|
+| `AGENT_SAFE` | — | `1` turns the guard on (wallet mode only). |
+| `AGENT_SAFE_MAX_PER_CALL_USD` | `0.15` | Largest single payment. |
+| `AGENT_SAFE_BUDGET_USD` | `1.00` | Total per window. |
+| `AGENT_SAFE_WINDOW_HOURS` | `24` | Budget window. |
+| `AGENT_SAFE_AUDIT_LOG` | — | Path for a hash-chained JSONL log of every payment decision. |
+| `AGENT_SAFE_RPC_URL` | public Base RPC | Used only to check, after an unconfirmed payment expires, whether it was used. |
+
 ---
 
 ## Claude Desktop configuration
