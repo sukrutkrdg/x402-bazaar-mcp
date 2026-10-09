@@ -177,7 +177,7 @@ function registerService(service) {
       title: service.name ?? toolName,
       description,
       inputSchema: inputShape,
-      outputSchema: OUTPUT_SHAPE,
+      outputSchema: z.object(OUTPUT_SHAPE).passthrough(),
       annotations: {
         title: service.name ?? toolName,
         readOnlyHint: !mutates,
