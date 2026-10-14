@@ -13,18 +13,32 @@ written here would be wrong the next time a service is added.
 Protocol) server** that gives your agent the checks it needs before it touches a
 Base token — including a **30-tool [B20](https://402.com.tr) (Base-native token
 standard) suite** covering freeze/seize powers, policy changes, mint headroom
-and rebase history — which also covers all 13 of
+and rebase history — which also covers all 82 of
 Coinbase's tokenized equities, telling a real issuance apart from a token merely
 wearing an equity ticker by reading who administers the transfer policy on
 chain rather than by consulting a list of addresses, so a newly issued one is
 recognised the day it appears — pre-trade GO/HOLD/STOP gates,
 honeypot & sellability checks, wallet + approval audits, sign-guard, prices and
 AI reports. Every paid API in the [x402 Bazaar](https://402.com.tr) catalog,
-exposed as a callable tool (Claude Desktop, Cursor, Cline, Windsurf, VS Code,
-Coinbase AgentKit, custom agents).
+exposed as a callable tool (Cursor, Cline, Windsurf, VS Code, Coinbase AgentKit,
+desktop assistants and custom agents).
 
-**Bind these first:** `pre_trade_gate` (any token), `b20_gate` (Base-native B20
-tokens), `sign_guard` (before signing a tx).
+**Bind these first:** `pre_trade_gate` (any Base token), `near_pre_trade_gate`
+(NEAR tokens), `b20_gate` (Base-native B20 tokens), `sign_guard` (before signing
+a tx).
+
+**Then act — swap at the best price, after the check:**
+
+- `base_swap` — on Base, routed by 0x across Uniswap, Aerodrome, Balancer, Curve
+  and more. Returns the route, minimum out, every fee, and a ready-to-sign
+  transaction for your agent's own wallet. Buying an unknown token runs a
+  sellability check first and refuses a honeypot.
+- `near_swap` — across chains (NEAR, Base, Ethereum, Solana, Bitcoin…) through
+  NEAR Intents. Returns a one-time deposit address; the output goes to your
+  recipient or is refunded. Buying a NEAR token runs `near_token_safety` first.
+  Track it with `near_swap_status`.
+
+Funds never pass through this server or ours.
 
 **No wallet needed to start.** Run it with no key, no token and no config at all
 and it uses the **free tier** — one free call/day on each service that offers
@@ -76,6 +90,12 @@ which returns a `ck_…` token. Set it as `X402_CREDIT_TOKEN` and every later ca
 just draws down the balance — no private key ever touches this config again.
 Tiers: $0.25 starter, $1, $5 (+10%), $20 (+20%).
 
+**Paying from NEAR?** The same credit token can be bought with USDC, USDT or NEAR on
+NEAR (or any asset NEAR Intents routes) — in the browser at
+[402.com.tr/credits](https://402.com.tr/credits), or headlessly with
+`POST https://402.com.tr/api/credits/near/quote`. NEAR Intents swaps it to USDC on Base;
+no Base wallet needed.
+
 ---
 
 ## Requirements
@@ -113,11 +133,10 @@ With none of the above set, the server runs on the **free tier**.
 
 ---
 
-## Claude Desktop configuration
+## Desktop MCP clients
 
-Add the following to your `claude_desktop_config.json`
-(usually `~/Library/Application Support/Claude/claude_desktop_config.json` on
-macOS or `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
+Most desktop assistants and IDEs read an `mcpServers` block from their MCP
+config file (see your client's docs for where it lives). Add:
 
 ```json
 {
@@ -137,8 +156,7 @@ Omit the `env` block entirely to run on the **free tier** (great for a first
 try), or use `"AGENT_PRIVATE_KEY": "0x…"` instead of the credit token to pay
 from a wallet.
 
-After saving, restart Claude Desktop.  You should see the Bazaar tools appear
-in the tool list (hammer icon).
+Restart the client after saving; the Bazaar tools appear in its tool list.
 
 ---
 
@@ -213,7 +231,7 @@ or swap the credit token for `"AGENT_PRIVATE_KEY": "0x…"` to pay from a wallet
 
 ---
 
-## Use with Coinbase AgentKit, Agentic Wallet & Claude Code
+## Use with Coinbase AgentKit, Agentic Wallet & CLI agents
 
 Because this is a standard MCP stdio server, any MCP-capable agent runtime can
 load and pay for the Bazaar's tools — including Coinbase's own agent stack, with
@@ -235,7 +253,7 @@ Two ways in:
    (`command: "npx"`, `args: ["-y", "x402-bazaar-mcp"]`, and `X402_CREDIT_TOKEN`
    or `AGENT_PRIVATE_KEY` in `env`). The agent gains every Bazaar tool —
    B20 freeze/seize checks, pre-trade gates, honeypot/sellability, deployer
-   reputation, exit liquidity, live DEX prices, gas, tx decode, Claude reports —
+   reputation, exit liquidity, live DEX prices, gas, tx decode, AI reports —
    as pay-per-call actions, no action provider to write.
 2. **Via AgentKit's native x402 support** — AgentKit's wallet can settle x402
    payments directly, so an agent can `GET https://402.com.tr/api/x402/<service>`
@@ -245,26 +263,27 @@ Two ways in:
 
 Either way the agent pays only for the calls it makes, in USDC on Base, gasless.
 
-### Claude Code
+### Command-line agents
 
-Add it as an MCP server in one command:
+CLI agents that manage MCP servers with an `mcp add` command take the same
+server:
 
 ```bash
 # Free tier (zero config):
-claude mcp add x402-bazaar -- npx -y x402-bazaar-mcp
+<agent-cli> mcp add x402-bazaar -- npx -y x402-bazaar-mcp
 
 # Or paid via prepaid credits:
-claude mcp add x402-bazaar -e X402_CREDIT_TOKEN=ck_your_token -- npx -y x402-bazaar-mcp
+<agent-cli> mcp add x402-bazaar -e X402_CREDIT_TOKEN=ck_your_token -- npx -y x402-bazaar-mcp
 ```
 
-Then ask Claude Code to check a token, price a portfolio, or screen an address —
+Then ask the agent to check a token, price a portfolio, or screen an address —
 it calls the right Bazaar tool and settles the micro-payment automatically.
 
 ---
 
 ## Why agents use this
 
-Agents need fresh on-chain data and AI utilities but don't want to manage RPC endpoints, scrapers, security heuristics, or per-provider API keys. One MCP server plus a credit token (or a funded wallet) gives them everything — contract safety checks, live DEX prices, gas estimates, transaction decoding, and Claude-powered reports — all pay-per-use, with no subscriptions or sign-up required.
+Agents need fresh on-chain data and AI utilities but don't want to manage RPC endpoints, scrapers, security heuristics, or per-provider API keys. One MCP server plus a credit token (or a funded wallet) gives them everything — contract safety checks, live DEX prices, gas estimates, transaction decoding, and AI-powered reports — all pay-per-use, with no subscriptions or sign-up required.
 
 ---
 
@@ -278,7 +297,7 @@ writing it includes:
 | `pre_trade_gate` | $0.10 | The one call before a trade — risk + sellability + route + deployer → GO/HOLD/STOP |
 | `token_risk` | $0.03 | Token safety score (honeypot, taxes, ownership, holders) for any Base token |
 | `sellability` | $0.08 | Can you actually SELL it? Honeypot/tax/lp simulation verdict |
-| `ai_token_report` | $0.12 | Claude-written full due-diligence report on a token |
+| `ai_token_report` | $0.12 | AI-written full due-diligence report on a token |
 | `sanctions` | $0.02 | Screen an address against the OFAC sanctions list |
 | `holders` | $0.02 | Top holders, concentration (whale risk) & LP lock for a token |
 | `token_price` | $0.02 | DEX price + liquidity for a Base token |

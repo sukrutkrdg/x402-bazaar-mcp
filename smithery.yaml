@@ -7,7 +7,7 @@
 # PREFER THE HOSTED SERVER. We are listed on Smithery as a stdio server, which
 # means an agent has to `npx`-install it and hand it a key in env. Every x402
 # server on Smithery with real usage is `remote: true`, and a stdio entry cannot
-# be added as a Claude custom connector or a ChatGPT connector at all — both
+# be added as a desktop assistant's custom connector at all — both
 # require an internet-reachable HTTPS endpoint. Ours has existed since 0.3.0:
 #
 #     https://402.com.tr/mcp        (Streamable HTTP, one tool per service, no install)
@@ -32,7 +32,8 @@ startCommand:
           A credit token (ck_…) from the buy-credits service (one x402 settlement
           mints it — see https://402.com.tr/agents). Sent as the x-credit-token
           header; each call debits your prepaid balance, with no wallet or
-          signing per call — the safest paid mode.
+          signing per call — the safest paid mode. No USDC on Base? Buy it with
+          USDC, USDT or NEAR on NEAR via NEAR Intents at https://402.com.tr/credits.
       agentPrivateKey:
         type: string
         title: Agent wallet private key (alternative)
